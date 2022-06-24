@@ -111,6 +111,7 @@ pub fn render_layout(layout: &Layout) {
         }
     }
 
+    std::fs::create_dir_all("./caveripper_output").unwrap();
     image_buffer.save_with_format("./caveripper_output/layout.png", image::ImageFormat::Png).unwrap();
 }
 
