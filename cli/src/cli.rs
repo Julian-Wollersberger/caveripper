@@ -149,6 +149,13 @@ pub enum Commands {
             default_value = "pikmin2"
         )]
         game_name: String,
+    },
+    
+    #[clap(
+        arg_required_else_help = true
+    )]
+    LegDay {
+        
     }
 }
 

@@ -3,6 +3,7 @@ mod extract;
 mod rarc;
 mod bti;
 mod util;
+mod find_worst_seeds;
 
 use atty::Stream;
 use cli::*;
@@ -135,6 +136,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             progress_bar.finish_and_clear();
             println!("🍞 Done extracting ISO '{}'.", game_name);
         },
+
+        Commands::LegDay {} => {}
     }
 
     Ok(())
