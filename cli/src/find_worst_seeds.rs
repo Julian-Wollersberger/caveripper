@@ -13,9 +13,13 @@
 //! Fancy path length calculations wouldn't make the estimates that much better.
 #![allow(unused)]
 
+use std::borrow::Borrow;
+use std::cell::{Ref, RefCell};
+use std::ops::Deref;
+use std::rc::Rc;
 use caveripper::assets::AssetManager;
 use caveripper::caveinfo::CaveInfo;
-use caveripper::layout::{Layout, SpawnObject};
+use caveripper::layout::{Layout, PlacedDoor, SpawnObject};
 use caveripper::sublevel::Sublevel;
 
 #[test]
@@ -93,18 +97,35 @@ pub fn multiple_sublevels(start_seed: u32, end_seed: u32) {
             &Sublevel::try_from(level).unwrap()).unwrap());
 
     let mut ranked = Vec::new();
-    for i in start_seed..end_seed {
+    for seed in start_seed..end_seed {
         let mut sum = 0.0;
         for level in caveinfos {
-            sum += estimate_path_lengths(level, i);
+            sum += estimate_path_lengths(level, seed);
         }
         //println!("Sum for seed {i} is {sum}");
-        ranked.push((sum as i32, i));
+        ranked.push((sum as i32, seed));
+
+        if (seed - start_seed) % 10_000 == 0 {
+            println!("Checked {} seeds", seed - start_seed);
+        }
     }
 
     ranked.sort();
     println!("Best seed is {:X} with score {}.", ranked[0].1, ranked[0].0);
     println!("Worst seed is {:X} with score {}.", ranked.last().unwrap().1, ranked.last().unwrap().0);
+
+    // Print several seeds. Allows for manual sorting later.
+    println!("\nList of best seeds:");
+    for i in 0..100 {
+        println!("{:X} with score {}", ranked[i].1, ranked[i].0);
+    }
+
+    println!("\nList of worst seeds:");
+    ranked.reverse();
+    for i in 0..100 {
+        println!("{:X} with score {}", ranked[i].1, ranked[i].0);
+    }
+
 
     // (Forgot FC and SCx, includes holes)
     // Best seed is 64C0 with score 32635.
@@ -121,17 +142,29 @@ pub fn multiple_sublevels(start_seed: u32, end_seed: u32) {
     // cargo run --release -- leg-day 0x00000000 0x00100000
     // Best seed is 22A03 with score 39645.
     // Worst seed is 2895B with score 59795.
+
+    // Now with hallway and gated-hole detection
+    // Best seed is 102198 with score 52580.
+    // Worst seed is 1002F2 with score 72735.
 }
 
 fn estimate_path_lengths(sublevel: &CaveInfo, seed: u32) -> f32 {
     let layout = Layout::generate(seed, sublevel);
     let mut relevant_object_coords = Vec::new();
 
+    // Many map units can mean that there is a meme hallway.
+    // Constant factor chosen by eyeballing. 10 is to little, 100 is to much.
+    let num_units_score = layout.map_units.len() as f32 * 30.0;
+    // A gated hole can be very annoying.
+    let mut gated_hole_score = 0.0;
+
     // Iterate over all the relevant objects in a level.
-    for unit in layout.map_units {
-        for spawn_point in unit.spawnpoints {
+    for unit in &layout.map_units {
+        let mut has_hole = false;
+        let mut has_gate = false;
+        for spawn_point in &unit.spawnpoints {
             let coordinates = (spawn_point.x, spawn_point.z);
-            for spawn_object in spawn_point.contains {
+            for spawn_object in &spawn_point.contains {
                 use SpawnObject::*;
                 match spawn_object {
                     // Treasure, ship and hole
@@ -149,7 +182,7 @@ fn estimate_path_lengths(sublevel: &CaveInfo, seed: u32) -> f32 {
                     // Although a far away hole is a problem, usually you have
                     // enough time to get to the hole, especially in bad layouts.
                     // But including the hole muddles up the statistics.
-                    Hole(_) => { }
+                    Hole(_) => has_hole = true,
 
                     // For simplicity, I'm ignoring geysers.
                     // But they do make in difference in SH-7
@@ -158,6 +191,26 @@ fn estimate_path_lengths(sublevel: &CaveInfo, seed: u32) -> f32 {
                     _ => {}
                 }
             }
+        }
+
+        // Find any gates in this unit.
+        for door in &unit.doors {
+            let placed_door: Ref<PlacedDoor> = RefCell::borrow(door);
+            match placed_door.seam_spawnpoint.borrow() {
+                Some(SpawnObject::Gate(_)) => {
+                    has_gate = true
+                }
+                _ => { }
+            }
+        }
+
+        // Check whether the hole has a gate in front. That can cost some time
+        // if you weren't prepared for it, or have few Pikmin.
+        // I guess that 200 is a bit high, but I want to bias results towards
+        // more annoying sublevels :)
+        if has_hole && has_gate {
+            gated_hole_score += 200.0;
+            //println!("Gate on hole in seed {seed} in level {}", sublevel.sublevel.short_name());
         }
     }
     // Distance doesn't make sense with only one object.
@@ -181,7 +234,7 @@ fn estimate_path_lengths(sublevel: &CaveInfo, seed: u32) -> f32 {
 
     let width = f32::abs(max_x - min_x);
     let height = f32::abs(max_z - min_z);
-    return width + height;
+    return width + height + num_units_score + gated_hole_score;
 }
 
 /// Can't use `std::cmp::min` because f32 isn't `Ord`.
