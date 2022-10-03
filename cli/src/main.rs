@@ -138,8 +138,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("🍞 Done extracting ISO '{}'.", game_name);
         },
 
-        Commands::LegDay => {
-            multiple_sublevels();
+        Commands::LegDay { start_seed, end_seed } => {
+            multiple_sublevels(start_seed, end_seed);
         }
     }
 

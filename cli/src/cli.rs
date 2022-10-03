@@ -152,9 +152,21 @@ pub enum Commands {
     },
 
     #[clap(
-        arg_required_else_help = false
+        arg_required_else_help = true
     )]
-    LegDay
+    LegDay {
+        #[clap(
+            value_parser = parse_seed,
+            help = "First seed to check",
+        )]
+        start_seed: u32,
+
+        #[clap(
+        value_parser = parse_seed,
+        help = "Last seed to check",
+        )]
+        end_seed: u32,
+    }
 }
 
 const SUBLEVEL_HELP: &str = "The sublevel in question. Examples: \"SCx6\", \"SmC-3\", \"bk4\"";

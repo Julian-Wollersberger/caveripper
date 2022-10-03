@@ -19,17 +19,16 @@ use caveripper::layout::{Layout, SpawnObject};
 use caveripper::sublevel::Sublevel;
 
 #[test]
-fn test_ranking() {
+fn test_ranking_individual_level() {
+    let sublevel = "SH-2";
+
     //println!("Working dir: {}", std::fs::canonicalize(".").unwrap().display());
-
-    //let sublevels = AssetManager::all_sublevels().unwrap();
     AssetManager::init_global("../assets", "..").unwrap();
-
-    let sh2 = Sublevel::try_from("SH-2").unwrap();
-    let caveinfo = AssetManager::get_caveinfo(&sh2).unwrap();
+    let sub = Sublevel::try_from(sublevel).unwrap();
+    let caveinfo = AssetManager::get_caveinfo(&sub).unwrap();
 
     let mut ranked = Vec::new();
-    for i in 0..10_000 {
+    for i in 0..100_000 {
         let path = estimate_path_lengths(caveinfo, i);
         //println!("Path lenght for seed {i} is {path}");
         ranked.push((path as i32, i));
@@ -39,9 +38,11 @@ fn test_ranking() {
     println!("Best seed is {:X} with score {}.", ranked[0].1, ranked[0].0);
     println!("Worst seed is {:X} with score {}.", ranked.last().unwrap().1, ranked.last().unwrap().0);
 
+    // Best seed is 1188 with score 940.
+    // Worst seed is 18448 with score 4945.
 }
 
-pub fn multiple_sublevels() {
+pub fn multiple_sublevels(start_seed: u32, end_seed: u32) {
     let pod_sublevels = [
         // Some sublevels don't make sense to include.
         // Always the same in this heuristic:
@@ -92,7 +93,7 @@ pub fn multiple_sublevels() {
             &Sublevel::try_from(level).unwrap()).unwrap());
 
     let mut ranked = Vec::new();
-    for i in 0..100_000 {
+    for i in start_seed..end_seed {
         let mut sum = 0.0;
         for level in caveinfos {
             sum += estimate_path_lengths(level, i);
@@ -112,6 +113,14 @@ pub fn multiple_sublevels() {
     // (Holes excluded, with FC & SCx)
     // Best seed is 13276 with score 40685.
     // Worst seed is 12111 with score 59245.
+
+    // cargo run --release -- leg-day 0x00000000 0x00010000
+    // Best seed is 3B18 with score 41010.
+    // Worst seed is EA71 with score 59235
+
+    // cargo run --release -- leg-day 0x00000000 0x00100000
+    // Best seed is 22A03 with score 39645.
+    // Worst seed is 2895B with score 59795.
 }
 
 fn estimate_path_lengths(sublevel: &CaveInfo, seed: u32) -> f32 {
@@ -155,12 +164,14 @@ fn estimate_path_lengths(sublevel: &CaveInfo, seed: u32) -> f32 {
     assert!(relevant_object_coords.len() >= 2, "Not enough objects on {}", sublevel.sublevel.short_name());
 
     // Calculate the rectangle that encloses all the objects.
+    // Start with one object.
     let obj = relevant_object_coords.pop().unwrap();
     let mut min_x = obj.0;
     let mut min_z = obj.1;
     let mut max_x = obj.0;
     let mut max_z = obj.1;
 
+    // Update the rectangle "sides" if an object is outside of it.
     for (x, z) in relevant_object_coords {
         min_x = min(min_x, x);
         min_z = min(min_z, z);
