@@ -25,6 +25,7 @@ use caveripper::{
     parse_seed
 };
 use simple_logger::SimpleLogger;
+use crate::find_worst_seeds::multiple_sublevels;
 
 fn main() -> Result<(), Box<dyn Error>> {
     AssetManager::init_global("assets", ".")?;
@@ -137,7 +138,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("🍞 Done extracting ISO '{}'.", game_name);
         },
 
-        Commands::LegDay {} => {}
+        Commands::LegDay => {
+            multiple_sublevels();
+        }
     }
 
     Ok(())

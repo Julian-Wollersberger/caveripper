@@ -150,13 +150,11 @@ pub enum Commands {
         )]
         game_name: String,
     },
-    
+
     #[clap(
-        arg_required_else_help = true
+        arg_required_else_help = false
     )]
-    LegDay {
-        
-    }
+    LegDay
 }
 
 const SUBLEVEL_HELP: &str = "The sublevel in question. Examples: \"SCx6\", \"SmC-3\", \"bk4\"";
